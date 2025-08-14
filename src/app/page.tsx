@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -9,10 +9,13 @@ type Finding = {
   advice?: string;
 };
 
+type Priority = { key: string; advice: string };
+type ScanResult = { host: string; score: number; findings: Finding[]; priorities: Priority[] };
+
 export default function Home() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleScan = async () => {
@@ -26,11 +29,12 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al escanear");
-      setResult(data);
-    } catch (e: any) {
-      setError(e.message);
+      const data = (await res.json()) as ScanResult | { error?: string };
+      if (!res.ok || "error" in data) throw new Error((data as any).error || "Error al escanear");
+      setResult(data as ScanResult);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Error al escanear";
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -64,18 +68,13 @@ export default function Home() {
 
       {result && (
         <div className="bg-white shadow p-4 rounded w-full max-w-2xl">
-          <h2 className="text-xl font-semibold mb-2">
-            Resultado: {result.host}
-          </h2>
+          <h2 className="text-xl font-semibold mb-2">Resultado: {result.host}</h2>
           <p className="mb-4">
             Score: <span className="font-bold">{result.score}/100</span>
           </p>
           <ul className="space-y-1 mb-4">
             {result.findings.map((f: Finding) => (
-              <li
-                key={f.key}
-                className={f.ok ? "text-green-600" : "text-red-600"}
-              >
+              <li key={f.key} className={f.ok ? "text-green-600" : "text-red-600"}>
                 {f.ok ? "✅" : "❌"} {f.message}
               </li>
             ))}
@@ -84,7 +83,7 @@ export default function Home() {
             <div>
               <h3 className="font-semibold mb-1">Prioridades:</h3>
               <ol className="list-decimal list-inside">
-                {result.priorities.map((p: any) => (
+                {result.priorities.map((p: Priority) => (
                   <li key={p.key}>{p.advice}</li>
                 ))}
               </ol>
